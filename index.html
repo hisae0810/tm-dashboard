@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TM品販売状況ダッシュボード - 完全版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Meiryo, sans-serif; background: #f5f7fa; color: #333; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 2em; margin-bottom: 8px; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .section { background: white; padding: 24px; margin-bottom: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .section-title { font-size: 1.3em; font-weight: bold; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        .filter-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+        .filter-group label { font-weight: bold; font-size: 0.9em; color: #666; display: block; margin-bottom: 8px; }
+        .filter-group select { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1em; }
+        .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4); }
+        .btn-warning { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; }
+        .btn-warning:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4); }
+        .btn-danger { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; }
+        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4); }
+        .file-input { display: none; }
+        .monthly-chart-container { padding: 20px; background: #f8f9fa; border-radius: 8px; }
+        .monthly-bars-container { display: flex; gap: 20px; justify-content: center; align-items: flex-end; padding: 40px 20px 20px; }
+        .monthly-bar-group { display: flex; flex-direction: column; align-items: center; min-width: 100px; }
+        .month-label-bottom { font-weight: bold; margin-top: 12px; color: #333; font-size: 0.95em; }
+        .two-bars { display: flex; gap: 8px; align-items: flex-end; height: 250px; }
+        .single-bar { width: 45px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+        .bar-column { width: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.85em; border-radius: 4px 4px 0 0; }
+        .bar-graph1 { background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); }
+        .bar-graph2 { background: linear-gradient(180deg, #fd7e14 0%, #ff9800 100%); }
+        .bar-label-top { margin-bottom: 6px; font-size: 0.7em; color: #666; text-align: center; line-height: 1.2; }
+        .warning-alert { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border-left: 5px solid #ff9800; padding: 16px 20px; margin-top: 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-weight: bold; color: #856404; }
+        .warning-icon { font-size: 1.5em; }
+        .monthly-legend { display: flex; gap: 30px; justify-content: center; margin-top: 20px; font-size: 0.9em; }
+        .monthly-legend-item { display: flex; align-items: center; gap: 8px; }
+        .monthly-legend-color { width: 30px; height: 20px; border-radius: 4px; }
+        .product-row { margin-bottom: 20px; padding: 20px; border-radius: 8px; background: #f8f9fa; border-left: 3px solid #667eea; position: relative; min-height: 200px; }
+        .product-compact-header { display: flex; justify-content: space-between; margin-bottom: 16px; padding-right: 160px; }
+        .product-name-compact { font-size: 1.2em; font-weight: bold; color: #667eea; }
+        .product-stats-compact { display: flex; gap: 16px; font-size: 0.9em; flex-wrap: wrap; }
+        .stat-compact { display: flex; gap: 4px; }
+        .stat-label-compact { color: #666; }
+        .stat-value-compact { font-weight: bold; }
+        .stat-value-compact.target { color: #dc3545; }
+        .stat-value-compact.plan { color: #007bff; }
+        .stat-value-compact.current { color: #28a745; }
+        .goal-status-topright { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.85em; text-align: right; }
+        .goal-item-topright { display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-weight: bold; white-space: nowrap; line-height: 1.3; }
+        .chart-bar-wrapper-compact { position: relative; padding-top: 45px; margin-top: 16px; }
+        .target-marker-compact { position: absolute; top: 0; right: 0; transform: translateX(50%); text-align: center; z-index: 10; }
+        .target-marker-arrow-compact { color: #dc3545; font-size: 1.4em; line-height: 1; margin-bottom: 2px; }
+        .target-marker-label-compact { color: #dc3545; font-size: 0.75em; font-weight: bold; white-space: nowrap; background: white; padding: 2px 6px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .plan-marker-compact { position: absolute; top: 0; left: 50%; transform: translateX(-50%); text-align: center; z-index: 9; }
+        .plan-marker-arrow-compact { color: #007bff; font-size: 1.2em; line-height: 1; margin-bottom: 2px; }
+        .plan-marker-label-compact { color: #007bff; font-size: 0.7em; font-weight: bold; white-space: nowrap; background: white; padding: 2px 6px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .chart-bar-bg-compact { height: 45px; background: #e9ecef; border-radius: 22px; display: flex; position: relative; overflow: visible; }
+        .bar-segment-compact { display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.9em; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); min-width: 30px; }
+        .bar-sales-compact { background: linear-gradient(90deg, #27ae60, #229954); border-radius: 22px 0 0 22px; }
+        .bar-deals-thisyear-compact { background: linear-gradient(90deg, #3498db, #2874a6); }
+        .bar-remaining-text { position: absolute; display: flex; align-items: center; justify-content: center; height: 45px; color: #555; font-weight: bold; font-size: 0.95em; pointer-events: none; white-space: nowrap; text-shadow: 0 0 3px white; }
+        .probability-badges { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .prob-badge { padding: 5px 12px; border-radius: 4px; font-size: 0.85em; font-weight: bold; color: white; }
+        .prob-k { background: #9c27b0; }
+        .prob-a { background: #ff5722; }
+        .prob-b { background: #ff9800; }
+        .prob-c { background: #ffc107; color: #333; }
+        .toggle-buttons { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .toggle-btn { padding: 8px 16px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .toggle-btn:hover { background: #f0f0ff; }
+        .toggle-btn.active { background: #667eea; color: white; }
+        .toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 8px; color: white; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast.success { background: linear-gradient(135deg, #28a745, #20c997); }
+        .toast.error { background: linear-gradient(135deg, #dc3545, #c82333); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 TM品販売状況ダッシュボード</h1>
+        <p>機種別分析 - レイアウト変更版</p>
+    </div>
+    <div class="container">
+        <!-- フィルターセクション -->
+        <div class="section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>営業部</label>
+                    <select id="filter-dept" onchange="applyFilters()">
+                        <option value="all">全営業部</option>
+                        <option value="病院営業本部">病院営業本部</option>
+                        <option value="クリニック営業本部">クリニック営業本部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>営業所</label>
+                    <select id="filter-office" onchange="applyFilters()">
+                        <option value="all">全営業所</option>
+                        <option value="東京">東京</option>
+                        <option value="大阪">大阪</option>
+                        <option value="名古屋">名古屋</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>営業員</label>
+                    <select id="filter-person" onchange="applyFilters()">
+                        <option value="all">全営業員</option>
+                        <option value="山田太郎">山田太郎</option>
+                        <option value="佐藤花子">佐藤花子</option>
+                        <option value="鈴木一郎">鈴木一郎</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>機種</label>
+                    <select id="filter-product" onchange="applyFilters()">
+                        <option value="all">全機種</option>
+                    </select>
+                </div>
+            </div>
+            <div class="button-group">
+                <input type="file" id="main-csv-input" class="file-input" accept=".csv">
+                <button class="btn btn-primary" onclick="document.getElementById('main-csv-input').click()">📁 メインデータ読込</button>
+                <input type="file" id="transition-csv-input" class="file-input" accept=".csv">
+                <button class="btn btn-primary" onclick="document.getElementById('transition-csv-input').click()">📈 商談推移データ読込</button>
+                <button class="btn btn-warning" onclick="resetFilters()">🔄 フィルタリセット</button>
+                <button class="btn btn-danger" onclick="clearCache()">🗑️ キャッシュクリア</button>
+            </div>
+        </div>
+        
+        <!-- 👇 全機種詳細を上段に配置 -->
+        <div class="section">
+            <div class="section-title">📦 全機種詳細</div>
+            <div class="toggle-buttons">
+                <button class="toggle-btn active" id="toggle-thisyear" onclick="switchDetailView('thisyear')">📅 今年度のみ</button>
+                <button class="toggle-btn" id="toggle-nextyear" onclick="switchDetailView('nextyear')">📅 来年度含む</button>
+                <button class="toggle-btn active" id="toggle-quantity" onclick="switchDetailType('quantity')">📊 台数表示</button>
+                <button class="toggle-btn" id="toggle-amount" onclick="switchDetailType('amount')">💰 金額表示</button>
+            </div>
+            <div id="product-detail-area"></div>
+        </div>
+        
+        <!-- 👇 商談数推移を下段に配置 -->
+        <div class="section">
+            <div class="section-title">📊 商談数推移（月別）</div>
+            <div id="monthly-chart-area"></div>
+        </div>
+    </div>
+
+    <script>
+        let mainData = [];
+        let transitionData = [];
+        let currentDetailView = 'thisyear';
+        let currentDetailType = 'quantity';
+
+        const sampleMainData = [
+            { 営業部: "病院営業本部", 営業所: "東京", 営業員: "山田太郎", 機種: "CSM-1500", 目標台数: 100, 計画台数: 50, 販売台数: 60, 商談K: 8, 商談A: 3, 商談B: 2, 商談C: 1, 目標金額: 50000, 計画金額: 25000, 販売金額: 30000, 年度: "今年度" },
+            { 営業部: "病院営業本部", 営業所: "東京", 営業員: "山田太郎", 機種: "CSM-1500", 商談K: 2, 商談A: 1, 商談B: 1, 商談C: 0, 年度: "来年度" },
+            { 営業部: "病院営業本部", 営業所: "大阪", 営業員: "佐藤花子", 機種: "CSM-1500", 目標台数: 100, 計画台数: 50, 販売台数: 25, 商談K: 4, 商談A: 2, 商談B: 0, 商談C: 0, 目標金額: 50000, 計画金額: 25000, 販売金額: 12500, 年度: "今年度" },
+            { 営業部: "病院営業本部", 営業所: "大阪", 営業員: "佐藤花子", 機種: "CSM-1500", 商談K: 1, 商談A: 1, 商談B: 0, 商談C: 0, 年度: "来年度" },
+            { 営業部: "病院営業本部", 営業所: "大阪", 営業員: "佐藤花子", 機種: "ECG-2450", 目標台数: 120, 計画台数: 60, 販売台数: 52, 商談K: 7, 商談A: 10, 商談B: 6, 商談C: 3, 目標金額: 72000, 計画金額: 36000, 販売金額: 31200, 年度: "今年度" },
+            { 営業部: "病院営業本部", 営業所: "大阪", 営業員: "佐藤花子", 機種: "ECG-2450", 商談K: 2, 商談A: 3, 商談B: 2, 商談C: 1, 年度: "来年度" },
+            { 営業部: "クリニック営業本部", 営業所: "名古屋", 営業員: "鈴木一郎", 機種: "AED-3200", 目標台数: 60, 計画台数: 30, 販売台数: 18, 商談K: 3, 商談A: 2, 商談B: 1, 商談C: 1, 目標金額: 36000, 計画金額: 18000, 販売金額: 10800, 年度: "今年度" },
+        ];
+
+        const sampleTransitionData = [
+            { 月: "05月", 実績今期: 155, 実績来期含む: 185 },
+            { 月: "06月", 実績今期: 155, 実績来期含む: 185 },
+            { 月: "07月", 実績今期: 160, 実績来期含む: 190 },
+        ];
+
+        window.onload = function() {
+            loadFromCache();
+            if (mainData.length === 0) mainData = [...sampleMainData];
+            if (transitionData.length === 0) transitionData = [...sampleTransitionData];
+            updateProductFilter();
+            renderProductDetails();
+            renderMonthlyChart();
+            saveToCache();
+        };
+
+        document.getElementById('main-csv-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                mainData = parseCSV(event.target.result);
+                updateProductFilter();
+                renderProductDetails();
+                renderMonthlyChart();
+                saveToCache();
+                showToast('✅ メインデータを読み込みました', 'success');
+            };
+            reader.readAsText(file, 'Shift_JIS');
+        });
+
+        document.getElementById('transition-csv-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                transitionData = parseCSV(event.target.result);
+                renderMonthlyChart();
+                saveToCache();
+                showToast('✅ 商談推移データを読み込みました', 'success');
+            };
+            reader.readAsText(file, 'Shift_JIS');
+        });
+
+        function parseCSV(csv) {
+            const lines = csv.split('\n').filter(line => line.trim());
+            if (lines.length < 2) return [];
+            const headers = lines[0].split(',').map(h => h.trim());
+            return lines.slice(1).map(line => {
+                const values = line.split(',').map(v => v.trim());
+                const obj = {};
+                headers.forEach((header, i) => {
+                    const value = values[i] || '';
+                    obj[header] = isNaN(value) ? value : Number(value);
+                });
+                return obj;
+            });
+        }
+
+        function updateProductFilter() {
+            const select = document.getElementById('filter-product');
+            const products = [...new Set(mainData.map(d => d.機種))].filter(p => p);
+            select.innerHTML = '<option value="all">全機種</option>';
+            products.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                select.appendChild(option);
+            });
+        }
+
+        function getFilters() {
+            return {
+                dept: document.getElementById('filter-dept').value,
+                office: document.getElementById('filter-office').value,
+                person: document.getElementById('filter-person').value,
+                product: document.getElementById('filter-product').value
+            };
+        }
+
+        function applyFilters() {
+            renderProductDetails();
+            renderMonthlyChart();
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-dept').value = 'all';
+            document.getElementById('filter-office').value = 'all';
+            document.getElementById('filter-person').value = 'all';
+            document.getElementById('filter-product').value = 'all';
+            applyFilters();
+            showToast('🔄 フィルターをリセットしました', 'success');
+        }
+
+        function clearCache() {
+            if (confirm('キャッシュをクリアすると、読み込んだデータがすべて削除されます。よろしいですか？')) {
+                localStorage.removeItem('dashboardMainData');
+                localStorage.removeItem('dashboardTransitionData');
+                mainData = [...sampleMainData];
+                transitionData = [...sampleTransitionData];
+                resetFilters();
+                showToast('🗑️ キャッシュをクリアしました', 'success');
+            }
+        }
+
+        function saveToCache() {
+            try {
+                localStorage.setItem('dashboardMainData', JSON.stringify(mainData));
+                localStorage.setItem('dashboardTransitionData', JSON.stringify(transitionData));
+            } catch (e) {
+                console.error('キャッシュ保存エラー:', e);
+            }
+        }
+
+        function loadFromCache() {
+            try {
+                const cachedMain = localStorage.getItem('dashboardMainData');
+                const cachedTransition = localStorage.getItem('dashboardTransitionData');
+                if (cachedMain) mainData = JSON.parse(cachedMain);
+                if (cachedTransition) transitionData = JSON.parse(cachedTransition);
+            } catch (e) {
+                console.error('キャッシュ読み込みエラー:', e);
+            }
+        }
+        function renderProductDetails() {
+            const area = document.getElementById('product-detail-area');
+            const filters = getFilters();
+            
+            let filtered = mainData.filter(d => {
+                if (filters.dept !== 'all' && d.営業部 !== filters.dept) return false;
+                if (filters.office !== 'all' && d.営業所 !== filters.office) return false;
+                if (filters.person !== 'all' && d.営業員 !== filters.person) return false;
+                if (filters.product !== 'all' && d.機種 !== filters.product) return false;
+                return true;
+            });
+
+            const productMap = {};
+            filtered.forEach(d => {
+                const key = d.機種;
+                if (!key) return;
+                
+                if (!productMap[key]) {
+                    productMap[key] = {
+                        機種: key,
+                        目標台数: 0, 計画台数: 0, 販売台数: 0,
+                        目標金額: 0, 計画金額: 0, 販売金額: 0,
+                        商談K今期: 0, 商談A今期: 0, 商談B今期: 0, 商談C今期: 0,
+                        商談K来期: 0, 商談A来期: 0, 商談B来期: 0, 商談C来期: 0
+                    };
+                }
+                
+                if (d.年度 === "今年度" || !d.年度) {
+                    productMap[key].目標台数 += d.目標台数 || 0;
+                    productMap[key].計画台数 += d.計画台数 || 0;
+                    productMap[key].販売台数 += d.販売台数 || 0;
+                    productMap[key].目標金額 += d.目標金額 || 0;
+                    productMap[key].計画金額 += d.計画金額 || 0;
+                    productMap[key].販売金額 += d.販売金額 || 0;
+                    productMap[key].商談K今期 += d.商談K || 0;
+                    productMap[key].商談A今期 += d.商談A || 0;
+                    productMap[key].商談B今期 += d.商談B || 0;
+                    productMap[key].商談C今期 += d.商談C || 0;
+                } else if (d.年度 === "来年度") {
+                    productMap[key].商談K来期 += d.商談K || 0;
+                    productMap[key].商談A来期 += d.商談A || 0;
+                    productMap[key].商談B来期 += d.商談B || 0;
+                    productMap[key].商談C来期 += d.商談C || 0;
+                }
+            });
+
+            const products = Object.values(productMap);
+            if (products.length === 0) {
+                area.innerHTML = '<p style="text-align:center;color:#999;padding:40px;">該当データがありません</p>';
+                return;
+            }
+
+            let html = '';
+            products.forEach(p => {
+                const isQuantity = currentDetailType === 'quantity';
+                const target = isQuantity ? p.目標台数 : p.目標金額;
+                const plan = isQuantity ? p.計画台数 : p.計画金額;
+                const sales = isQuantity ? p.販売台数 : p.販売金額;
+                const unit = isQuantity ? '台' : '万円';
+
+                const dealsThisYear = p.商談K今期 + p.商談A今期 + p.商談B今期 + p.商談C今期;
+                const dealsNextYear = p.商談K来期 + p.商談A来期 + p.商談B来期 + p.商談C来期;
+                const dealsToShow = currentDetailView === 'thisyear' ? dealsThisYear : dealsThisYear + dealsNextYear;
+
+                const current = sales + dealsToShow;
+
+                const salesPct = target > 0 ? (sales / target) * 100 : 0;
+                const dealsPct = target > 0 ? (dealsToShow / target) * 100 : 0;
+                const currentPct = salesPct + dealsPct;
+
+                const planAchieved = current >= plan;
+                const targetAchieved = current >= target;
+
+                const planDiff = current - plan;
+                const targetDiff = current - target;
+
+                html += `<div class="product-row">`;
+                
+                html += `<div class="product-compact-header"><div class="product-name-compact">📦 ${p.機種}</div><div class="product-stats-compact"><div class="stat-compact"><span class="stat-label-compact">目標:</span><span class="stat-value-compact target">${target}${unit}</span></div><div class="stat-compact"><span class="stat-label-compact">計画:</span><span class="stat-value-compact plan">${plan}${unit}</span></div><div class="stat-compact"><span class="stat-label-compact">現在:</span><span class="stat-value-compact current">${current}${unit}</span></div></div></div>`;
+
+                html += `<div class="goal-status-topright">`;
+                if (planAchieved) {
+                    html += `<div class="goal-item-topright" style="color:#28a745;"><span>✅</span><span>計画達成 (+${planDiff}${unit})</span></div>`;
+                } else {
+                    html += `<div class="goal-item-topright" style="color:#666;"><span>📊</span><span>計画まであと${Math.abs(planDiff)}${unit}</span></div>`;
+                }
+                if (targetAchieved) {
+                    html += `<div class="goal-item-topright" style="color:#28a745;"><span>🎉</span><span>目標達成 (+${targetDiff}${unit})</span></div>`;
+                } else {
+                    html += `<div class="goal-item-topright" style="color:#dc3545;"><span>🎯</span><span>目標まであと${Math.abs(targetDiff)}${unit}</span></div>`;
+                }
+                html += `</div>`;
+
+                html += `<div class="chart-bar-wrapper-compact">`;
+                html += `<div class="target-marker-compact"><div class="target-marker-arrow-compact">▼</div><div class="target-marker-label-compact">目標</div></div>`;
+                html += `<div class="plan-marker-compact"><div class="plan-marker-arrow-compact">▼</div><div class="plan-marker-label-compact">計画</div></div>`;
+
+                html += `<div class="chart-bar-bg-compact">`;
+                
+                if (sales > 0) {
+                    html += `<div class="bar-segment-compact bar-sales-compact" style="width: ${Math.min(salesPct, 100)}%;"><span>${sales}</span></div>`;
+                }
+                
+                if (dealsToShow > 0) {
+                    const totalWidth = Math.min(currentPct, 100);
+                    const dealsWidth = totalWidth - Math.min(salesPct, 100);
+                    if (dealsWidth > 0) {
+                        const roundEnd = currentPct >= 100 ? 'border-radius: 0 22px 22px 0;' : '';
+                        const roundBoth = sales === 0 ? 'border-radius: 22px 0 0 22px;' : '';
+                        html += `<div class="bar-segment-compact bar-deals-thisyear-compact" style="width: ${dealsWidth}%; ${roundEnd}${roundBoth}"><span>${dealsToShow}</span></div>`;
+                    }
+                }
+
+                if (!targetAchieved && currentPct < 100) {
+                    const remainingPct = 100 - currentPct;
+                    if (remainingPct > 5) {
+                        html += `<div class="bar-remaining-text" style="left: ${currentPct + remainingPct/2}%;">あと${Math.abs(targetDiff)}${unit}</div>`;
+                    }
+                }
+
+                html += `</div></div>`;
+
+                html += `<div class="probability-badges">`;
+                const kTotal = p.商談K今期 + (currentDetailView === 'nextyear' ? p.商談K来期 : 0);
+                const aTotal = p.商談A今期 + (currentDetailView === 'nextyear' ? p.商談A来期 : 0);
+                const bTotal = p.商談B今期 + (currentDetailView === 'nextyear' ? p.商談B来期 : 0);
+                const cTotal = p.商談C今期 + (currentDetailView === 'nextyear' ? p.商談C来期 : 0);
+                if (kTotal > 0) html += `<span class="prob-badge prob-k">K:${kTotal}</span>`;
+                if (aTotal > 0) html += `<span class="prob-badge prob-a">A:${aTotal}</span>`;
+                if (bTotal > 0) html += `<span class="prob-badge prob-b">B:${bTotal}</span>`;
+                if (cTotal > 0) html += `<span class="prob-badge prob-c">C:${cTotal}</span>`;
+                html += `</div>`;
+
+                html += `</div>`;
+            });
+
+            area.innerHTML = html;
+        }
+
+        function renderMonthlyChart() {
+            const area = document.getElementById('monthly-chart-area');
+            const filters = getFilters();
+
+            let filtered = mainData.filter(d => {
+                if (filters.dept !== 'all' && d.営業部 !== filters.dept) return false;
+                if (filters.office !== 'all' && d.営業所 !== filters.office) return false;
+                if (filters.person !== 'all' && d.営業員 !== filters.person) return false;
+                if (filters.product !== 'all' && d.機種 !== filters.product) return false;
+                return true;
+            });
+
+            let chartData = [];
+            
+            if (transitionData.length > 0) {
+                chartData = transitionData.map(d => {
+                    const thisYearFiltered = filtered.reduce((sum, fd) => {
+                        if (fd.年度 === "今年度" || !fd.年度) {
+                            return sum + (fd.販売台数 || 0) + (fd.商談K || 0) + (fd.商談A || 0) + (fd.商談B || 0) + (fd.商談C || 0);
+                        }
+                        return sum;
+                    }, 0);
+                    
+                    const allYearFiltered = filtered.reduce((sum, fd) => {
+                        return sum + (fd.販売台数 || 0) + (fd.商談K || 0) + (fd.商談A || 0) + (fd.商談B || 0) + (fd.商談C || 0);
+                    }, 0);
+                    
+                    return {
+                        月: d.月,
+                        実績今期: thisYearFiltered > 0 ? thisYearFiltered : d.実績今期,
+                        実績来期含む: allYearFiltered > 0 ? allYearFiltered : d.実績来期含む
+                    };
+                });
+            } else {
+                const thisYear = filtered.reduce((sum, d) => {
+                    if (d.年度 === "今年度" || !d.年度) {
+                        return sum + (d.販売台数 || 0) + (d.商談K || 0) + (d.商談A || 0) + (d.商談B || 0) + (d.商談C || 0);
+                    }
+                    return sum;
+                }, 0);
+                
+                const allYear = filtered.reduce((sum, d) => {
+                    return sum + (d.販売台数 || 0) + (d.商談K || 0) + (d.商談A || 0) + (d.商談B || 0) + (d.商談C || 0);
+                }, 0);
+
+                chartData = [{ 月: "集計", 実績今期: thisYear, 実績来期含む: allYear }];
+            }
+
+            if (chartData.length === 0) {
+                area.innerHTML = '<p style="text-align:center;color:#999;padding:40px;">データがありません</p>';
+                return;
+            }
+
+            let html = '<div class="monthly-chart-container"><div class="monthly-bars-container">';
+            let previousTotal = null;
+            let warningMonth = null;
+
+            chartData.forEach(d => {
+                const currentTotal = d.実績来期含む || 0;
+                if (previousTotal !== null && currentTotal === previousTotal) {
+                    warningMonth = d.月;
+                }
+                previousTotal = currentTotal;
+
+                const val1 = d.実績今期 || 0;
+                const val2 = d.実績来期含む || 0;
+                const maxVal = Math.max(val1, val2, 200);
+                const h1 = val1 > 0 ? Math.max((val1 / maxVal) * 250, 30) : 0;
+                const h2 = val2 > 0 ? Math.max((val2 / maxVal) * 250, 30) : 0;
+
+                html += `<div class="monthly-bar-group">`;
+                html += `<div class="two-bars">`;
+                html += `<div class="single-bar">`;
+                html += `<div class="bar-label-top">①<br>実績+今期</div>`;
+                html += val1 > 0 ? `<div class="bar-column bar-graph1" style="height:${h1}px;">${val1}</div>` : '';
+                html += `</div>`;
+                html += `<div class="single-bar">`;
+                html += `<div class="bar-label-top">②<br>①+来期</div>`;
+                html += val2 > 0 ? `<div class="bar-column bar-graph2" style="height:${h2}px;">${val2}</div>` : '';
+                html += `</div>`;
+                html += `</div>`;
+                html += `<div class="month-label-bottom">${d.月}</div>`;
+                html += `</div>`;
+            });
+
+            html += '</div>';
+
+            if (warningMonth) {
+                html += `<div class="warning-alert"><span class="warning-icon">⚠️</span><span>${warningMonth}は前月と総数が同じです。新規商談が追加されず、確度変更のみの可能性があります。</span></div>`;
+            }
+
+            html += `<div class="monthly-legend"><div class="monthly-legend-item"><div class="monthly-legend-color" style="background:linear-gradient(90deg,#667eea,#764ba2);"></div><span>グラフ① 実績（販売台数）+ 今年度保有商談数</span></div><div class="monthly-legend-item"><div class="monthly-legend-color" style="background:linear-gradient(90deg,#fd7e14,#ff9800);"></div><span>グラフ② ①+来年度商談数</span></div></div></div>`;
+
+            area.innerHTML = html;
+        }
+
+        function switchDetailView(view) {
+            currentDetailView = view;
+            document.getElementById('toggle-thisyear').classList.toggle('active', view === 'thisyear');
+            document.getElementById('toggle-nextyear').classList.toggle('active', view === 'nextyear');
+            renderProductDetails();
+        }
+
+        function switchDetailType(type) {
+            currentDetailType = type;
+            document.getElementById('toggle-quantity').classList.toggle('active', type === 'quantity');
+            document.getElementById('toggle-amount').classList.toggle('active', type === 'amount');
+            renderProductDetails();
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
